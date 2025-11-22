@@ -1,0 +1,18 @@
+{
+  "version": 2,
+  "builds": [
+    { "src": "api/search.js", "use": "@vercel/node" },
+    { "src": "index.html", "use": "@vercel/static" },
+    { "src": "autoplaysong.mp3", "use": "@vercel/static" },
+    { "src": "password-change.html", "use": "@vercel/static" },
+    { "src": "buy.html", "use": "@vercel/static" }
+  ],
+  "routes": [
+    { "src": "/api/search", "dest": "/api/search.js" },
+    { "src": "/autoplaysong.mp3", "dest": "/autoplaysong.mp3" },
+    { "src": "/password-change.html", "dest": "/password-change.html" },
+    { "src": "/buy", "dest": "/buy.html" },
+    { "src": "/src/buy", "dest": "/buy.html" },
+    { "src": "/(.*)", "dest": "/index.html" }
+  ]
+}
