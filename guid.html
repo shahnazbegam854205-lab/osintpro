@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Verification Help - HAPPY INFO TOOL</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        :root {
+            --neon: #00fff2;
+            --accent: #00ffaa;
+            --dark: #0a0a0f;
+        }
+
+        body {
+            background: radial-gradient(circle at center, #070808 0%, #000 100%);
+            color: #e0e0e0;
+            min-height: 100vh;
+            line-height: 1.5;
+            padding: 15px;
+        }
+
+        .container {
+            max-width: 500px;
+            margin: 0 auto;
+        }
+
+        header {
+            text-align: center;
+            padding: 30px 15px;
+            margin-bottom: 20px;
+        }
+
+        .logo {
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: var(--neon);
+            text-shadow: 0 0 10px var(--neon);
+            margin-bottom: 8px;
+        }
+
+        .tagline {
+            font-size: 1rem;
+            color: #aaffff;
+            opacity: 0.9;
+        }
+
+        .card {
+            background: linear-gradient(135deg, rgba(15,15,20,0.9), rgba(8,8,12,0.95));
+            border-radius: 16px;
+            padding: 25px 20px;
+            border: 1px solid rgba(0,255,200,0.1);
+            box-shadow: 0 8px 20px rgba(0,0,0,0.3);
+            margin-bottom: 20px;
+        }
+
+        .card-title {
+            font-size: 1.3rem;
+            color: var(--neon);
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .card-title i {
+            font-size: 1.5rem;
+        }
+
+        .step {
+            margin-bottom: 20px;
+        }
+
+        .step-number {
+            display: inline-block;
+            width: 26px;
+            height: 26px;
+            background: linear-gradient(135deg, var(--neon), var(--accent));
+            color: #000;
+            border-radius: 50%;
+            text-align: center;
+            line-height: 26px;
+            font-weight: bold;
+            margin-right: 10px;
+            font-size: 0.9rem;
+        }
+
+        .step-title {
+            font-size: 1.1rem;
+            color: #fff;
+            margin-bottom: 8px;
+        }
+
+        .step-content {
+            color: #b0b0b0;
+            padding-left: 36px;
+            font-size: 0.95rem;
+        }
+
+        .video-section {
+            text-align: center;
+            margin: 25px 0;
+        }
+
+        .video-button {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            background: linear-gradient(135deg, #ff3366, var(--danger));
+            color: white;
+            padding: 14px 25px;
+            border-radius: 50px;
+            text-decoration: none;
+            font-weight: bold;
+            font-size: 1rem;
+            width: 100%;
+            max-width: 280px;
+            transition: all 0.3s ease;
+            box-shadow: 0 5px 15px rgba(255,85,102,0.4);
+        }
+
+        .video-button:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 20px rgba(255,85,102,0.6);
+        }
+
+        .video-button i {
+            font-size: 1.2rem;
+        }
+
+        .note {
+            background: rgba(0,255,242,0.1);
+            border-left: 4px solid var(--neon);
+            padding: 12px;
+            margin: 15px 0;
+            border-radius: 0 8px 8px 0;
+            font-size: 0.9rem;
+        }
+
+        .highlight {
+            color: var(--accent);
+            font-weight: bold;
+        }
+
+        .contact-section {
+            text-align: center;
+            margin-top: 30px;
+            padding: 20px;
+            background: linear-gradient(135deg, rgba(10,10,15,0.9), rgba(5,5,8,0.95));
+            border-radius: 16px;
+            border: 1px solid rgba(0,255,200,0.1);
+        }
+
+        .contact-title {
+            font-size: 1.2rem;
+            color: var(--neon);
+            margin-bottom: 15px;
+        }
+
+        .contact-button {
+            display: inline-block;
+            background: linear-gradient(135deg, var(--neon), var(--accent));
+            color: #000;
+            padding: 10px 20px;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: bold;
+            font-size: 0.95rem;
+            transition: all 0.3s ease;
+        }
+
+        .contact-button:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 5px 15px rgba(0,255,200,0.4);
+        }
+
+        footer {
+            text-align: center;
+            padding: 20px 10px;
+            margin-top: 30px;
+            color: #888;
+            font-size: 0.85rem;
+        }
+    </style>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="logo">HAPPY INFO TOOL</div>
+            <div class="tagline">Email Verification Help</div>
+        </header>
+
+        <div class="card">
+            <h2 class="card-title"><i class="fas fa-envelope"></i> Quick Steps</h2>
+            
+            <div class="step">
+                <div class="step-title"><span class="step-number">1</span> Check Inbox & Spam</div>
+                <div class="step-content">
+                    Look for our email in your main inbox and <span class="highlight">SPAM folder</span>.
+                </div>
+            </div>
+            
+            <div class="step">
+                <div class="step-title"><span class="step-number">2</span> Click Link</div>
+                <div class="step-content">
+                    Open the email and click the verification link inside.
+                </div>
+            </div>
+            
+            <div class="step">
+                <div class="step-title"><span class="step-number">3</span> Return to App</div>
+                <div class="step-content">
+                    Go back to the app and log in with your email.
+                </div>
+            </div>
+            
+            <div class="note">
+                <strong>Note:</strong> Link expires in 24 hours. Check spam folder if you don't see the email.
+            </div>
+        </div>
+        
+        <div class="video-section">
+            <a href="https://youtu.be/Em5cDjCvoDQ" target="_blank" class="video-button">
+                <i class="fas fa-play-circle"></i> Watch Video Guide
+            </a>
+        </div>
+        
+        <div class="contact-section">
+            <h3 class="contact-title">Need More Help?</h3>
+            <a href="https://t.me/Royal_smart_boy" target="_blank" class="contact-button">
+                <i class="fab fa-telegram"></i> Contact Support
+            </a>
+        </div>
+        
+        <footer>
+            <p>© 2024 HAPPY INFO TOOL</p>
+        </footer>
+    </div>
+</body>
+</html>
