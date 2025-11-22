@@ -1,7 +1,7 @@
 const fetch = require('node-fetch');
 const admin = require('firebase-admin');
 
-// Initialize Firebase Admin with Environment Variables
+// Initialize Firebase Admin
 if (!admin.apps.length) {
   admin.initializeApp({
     credential: admin.credential.cert({
@@ -18,7 +18,6 @@ if (!admin.apps.length) {
     }),
     databaseURL: "https://happy-8530b-default-rtdb.firebaseio.com"
   });
-  console.log("Firebase Admin initialized successfully");
 }
 
 // Rate limiting
@@ -63,75 +62,15 @@ function validateInput(input, type) {
   return false;
 }
 
-// ✅ BAD WORDS FILTER
-const badWords = [
-  'fuck', 'lund', 'chod', 'madarchod', 'bhosdike', 'behenchod', 
-  'gaand', 'chutiya', 'kutta', 'kamine', 'lavde', 'randi',
-  'rand', 'bhenchod', 'bsdk', 'mc', 'bc', 'gandu',
-  'prostitute', 'whore', 'slut', 'asshole', 'bitch', 
-  'dick', 'pussy', 'sex', 'fucking', 'bastard',
-  'motherfucker', 'shit', 'ass', 'dickhead'
-];
-
+// BAD WORDS FILTER
+const badWords = ['fuck', 'lund', 'chod', 'madarchod', 'bhosdike', 'behenchod', 'gaand', 'chutiya', 'kutta', 'kamine'];
 function containsBadWords(text) {
   if (!text || typeof text !== 'string') return false;
-  return badWords.some(word => 
-    text.toLowerCase().includes(word.toLowerCase())
-  );
-}
-
-// ✅ CHECK IF USER IS BANNED
-async function isUserBanned(userId) {
-  try {
-    const banRef = admin.database().ref('banned_users/' + userId);
-    const snapshot = await banRef.once('value');
-    return snapshot.exists();
-  } catch (error) {
-    console.error('Error checking ban status:', error);
-    return false;
-  }
-}
-
-// ✅ ADD WARNING TO USER
-async function addWarning(userId, reason) {
-  try {
-    const warningRef = admin.database().ref('user_warnings/' + userId);
-    const snapshot = await warningRef.once('value');
-    const currentWarnings = snapshot.val() || 0;
-    
-    await warningRef.set(currentWarnings + 1);
-    
-    // Log the warning
-    await admin.database().ref('admin_logs').push().set({
-      action: 'warning',
-      userId: userId,
-      reason: reason,
-      timestamp: admin.database.ServerValue.TIMESTAMP,
-      warningsCount: currentWarnings + 1
-    });
-    
-    console.log(`Warning added to user ${userId}. Total warnings: ${currentWarnings + 1}`);
-    
-    // Auto-ban after 3 warnings
-    if (currentWarnings + 1 >= 3) {
-      await admin.database().ref('banned_users/' + userId).set({
-        banned: true,
-        reason: 'Multiple warnings - Auto ban',
-        bannedAt: admin.database.ServerValue.TIMESTAMP,
-        bannedBy: 'system'
-      });
-      console.log(`User ${userId} auto-banned due to multiple warnings`);
-    }
-    
-    return currentWarnings + 1;
-  } catch (error) {
-    console.error('Error adding warning:', error);
-    return 0;
-  }
+  return badWords.some(word => text.toLowerCase().includes(word.toLowerCase()));
 }
 
 module.exports = async (req, res) => {
-  /* 🌐 CORS SETUP */
+  // CORS SETUP
   res.setHeader('Access-Control-Allow-Origin', 'https://osintpro.vercel.app');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
@@ -140,62 +79,31 @@ module.exports = async (req, res) => {
     return res.status(200).end();
   }
 
-  /* 🔐 SECURITY CHECKS */
+  // SECURITY CHECKS
   const clientIP = getClientIP(req);
-  
   if (!rateLimit(clientIP)) {
-    return res.status(429).json({
-      success: false,
-      message: 'Too many requests. Please try again later.'
-    });
+    return res.status(429).json({ success: false, message: 'Too many requests. Please try again later.' });
   }
 
-  /* 🔑 AUTHENTICATION CHECK */
+  // AUTHENTICATION CHECK
   const authHeader = req.headers.authorization;
-  
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return res.status(401).json({
-      success: false,
-      message: 'Authentication required. Please login again.'
-    });
+    return res.status(401).json({ success: false, message: 'Authentication required. Please login again.' });
   }
 
   const idToken = authHeader.split('Bearer ')[1];
   let userId;
-
   try {
     const decodedToken = await admin.auth().verifyIdToken(idToken);
     userId = decodedToken.uid;
-    
     if (!decodedToken.email_verified) {
-      return res.status(403).json({
-        success: false,
-        message: 'Email not verified. Please verify your email first.'
-      });
+      return res.status(403).json({ success: false, message: 'Email not verified. Please verify your email first.' });
     }
   } catch (authError) {
-    console.error('Auth error:', authError);
-    return res.status(401).json({
-      success: false,
-      message: 'Invalid authentication token. Please login again.'
-    });
+    return res.status(401).json({ success: false, message: 'Invalid authentication token. Please login again.' });
   }
 
-  /* 🚫 CHECK IF USER IS BANNED */
-  try {
-    const isBanned = await isUserBanned(userId);
-    if (isBanned) {
-      return res.status(403).json({
-        success: false,
-        message: 'Your account has been banned. Please contact support.'
-      });
-    }
-  } catch (banCheckError) {
-    console.error('Ban check error:', banCheckError);
-    // Continue even if ban check fails
-  }
-
-  // ✅ NEW: GET ALL USERS ENDPOINT
+  // ✅ GET ALL USERS ENDPOINT
   if (req.method === 'GET' && req.url === '/api/search/users') {
     try {
       const usersRef = admin.database().ref('users');
@@ -204,7 +112,7 @@ module.exports = async (req, res) => {
 
       const usersList = [];
       Object.entries(users || {}).forEach(([uid, userData]) => {
-        if (uid !== userId) { // Don't include current user
+        if (uid !== userId) {
           usersList.push({
             uid: uid,
             name: userData.name || 'Unknown User',
@@ -225,79 +133,51 @@ module.exports = async (req, res) => {
 
     } catch (error) {
       console.error('Get users error:', error);
-      return res.status(500).json({ 
-        success: false, 
-        message: 'Failed to get users' 
-      });
+      return res.status(500).json({ success: false, message: 'Failed to get users' });
     }
   }
 
-  // ✅ NEW: SEND CHAT MESSAGE ENDPOINT
+  // ✅ SEND CHAT MESSAGE ENDPOINT
   if (req.method === 'POST' && req.url === '/api/search/send-message') {
     try {
       const { toUserId, message } = req.body;
       
       if (!toUserId || !message) {
-        return res.status(400).json({ 
-          success: false, 
-          message: 'User ID and message are required' 
-        });
+        return res.status(400).json({ success: false, message: 'User ID and message are required' });
       }
 
-      if (message.trim().length === 0) {
-        return res.status(400).json({ 
-          success: false, 
-          message: 'Message cannot be empty' 
-        });
-      }
-
-      // 🚫 CHECK FOR BAD WORDS
       if (containsBadWords(message)) {
-        const warningCount = await addWarning(userId, 'Used bad words in chat');
-        return res.status(400).json({
-          success: false,
-          message: `Inappropriate content detected. Warning ${warningCount}/3.`,
-          warning_issued: true,
-          warnings_count: warningCount
-        });
+        return res.status(400).json({ success: false, message: 'Inappropriate content detected.' });
       }
 
-      // Check if target user exists
-      const targetUserRef = admin.database().ref('users/' + toUserId);
-      const targetUserSnapshot = await targetUserRef.once('value');
-      
-      if (!targetUserSnapshot.exists()) {
-        return res.status(404).json({ 
-          success: false, 
-          message: 'Target user not found' 
-        });
-      }
-
-      // Get current user info
+      // Get user info
       const userRef = admin.database().ref('users/' + userId);
       const userSnapshot = await userRef.once('value');
       const userData = userSnapshot.val();
       const userName = userData?.name || 'Unknown User';
 
-      // Create chat ID (sorted to ensure consistency)
+      // Check target user
+      const targetUserRef = admin.database().ref('users/' + toUserId);
+      const targetUserSnapshot = await targetUserRef.once('value');
+      if (!targetUserSnapshot.exists()) {
+        return res.status(404).json({ success: false, message: 'Target user not found' });
+      }
+
+      // Create chat
       const chatId = [userId, toUserId].sort().join('_');
-      
-      // Save message to Firebase Realtime Database
       const messageData = {
         text: message.trim(),
         senderId: userId,
         senderName: userName,
         timestamp: admin.database.ServerValue.TIMESTAMP,
-        read: false,
-        expiresAt: Date.now() + (3 * 60 * 1000) // 3 minutes from now
+        read: false
       };
 
       const chatRef = admin.database().ref('chats/' + chatId + '/messages');
       const newMessageRef = chatRef.push();
-      
       await newMessageRef.set(messageData);
 
-      // ✅ AUTO-DELETE AFTER 3 MINUTES
+      // Auto-delete after 3 minutes
       setTimeout(async () => {
         try {
           await newMessageRef.remove();
@@ -305,246 +185,114 @@ module.exports = async (req, res) => {
         } catch (error) {
           console.error('Error auto-deleting message:', error);
         }
-      }, 3 * 60 * 1000); // 3 minutes
-
-      // Update both users' chat lists
-      const userChatRef = admin.database().ref('user_chats/' + userId + '/' + toUserId);
-      const targetChatRef = admin.database().ref('user_chats/' + toUserId + '/' + userId);
-      
-      const chatInfo = {
-        lastMessage: message.trim(),
-        lastMessageTime: admin.database.ServerValue.TIMESTAMP,
-        unreadCount: admin.database.ServerValue.increment(1),
-        participantId: toUserId,
-        participantName: targetUserSnapshot.val().name || 'Unknown User',
-        participantAvatar: targetUserSnapshot.val().profile?.profilePic || ''
-      };
-
-      await userChatRef.set({
-        ...chatInfo,
-        unreadCount: 0 // For sender, unread count is 0
-      });
-
-      await targetChatRef.set({
-        ...chatInfo,
-        participantId: userId,
-        participantName: userName,
-        participantAvatar: userData.profile?.profilePic || ''
-      });
+      }, 3 * 60 * 1000);
 
       return res.json({
         success: true,
         message: 'Message sent successfully!',
         message_id: newMessageRef.key,
-        chat_id: chatId,
-        expires_in: '3 minutes'
+        chat_id: chatId
       });
 
     } catch (error) {
       console.error('Chat message error:', error);
-      return res.status(500).json({
-        success: false,
-        message: 'Failed to send message: ' + error.message
-      });
+      return res.status(500).json({ success: false, message: 'Failed to send message' });
     }
   }
 
-  // ✅ NEW: GET CHAT MESSAGES ENDPOINT
+  // ✅ GET CHAT MESSAGES ENDPOINT
   if (req.method === 'GET' && req.url === '/api/search/get-messages') {
     try {
       const { targetUserId } = req.query;
-      
       if (!targetUserId) {
-        return res.status(400).json({ 
-          success: false, 
-          message: 'Target user ID is required' 
-        });
+        return res.status(400).json({ success: false, message: 'Target user ID is required' });
       }
 
-      // Create chat ID (sorted to ensure consistency)
       const chatId = [userId, targetUserId].sort().join('_');
-      
-      // Get messages from Firebase
       const messagesRef = admin.database().ref('chats/' + chatId + '/messages');
       const snapshot = await messagesRef.orderByChild('timestamp').limitToLast(50).once('value');
       
       const messages = [];
       snapshot.forEach((childSnapshot) => {
-        const messageData = childSnapshot.val();
-        // Check if message is expired
-        if (messageData.expiresAt > Date.now()) {
-          messages.push({
-            id: childSnapshot.key,
-            ...messageData
-          });
-        }
+        messages.push({
+          id: childSnapshot.key,
+          ...childSnapshot.val()
+        });
       });
-
-      // Mark messages as read
-      const updates = {};
-      snapshot.forEach((childSnapshot) => {
-        if (childSnapshot.val().senderId !== userId && !childSnapshot.val().read) {
-          updates[childSnapshot.key + '/read'] = true;
-        }
-      });
-
-      if (Object.keys(updates).length > 0) {
-        await messagesRef.update(updates);
-      }
 
       return res.json({
         success: true,
-        messages: messages.reverse(), // Latest messages last
+        messages: messages.reverse(),
         chat_id: chatId
       });
 
     } catch (error) {
       console.error('Get messages error:', error);
-      return res.status(500).json({
-        success: false,
-        message: 'Failed to get messages: ' + error.message
-      });
+      return res.status(500).json({ success: false, message: 'Failed to get messages' });
     }
   }
 
-  // ✅ ORIGINAL SEARCH FUNCTIONALITY (UNCHANGED)
+  // ✅ ORIGINAL SEARCH FUNCTIONALITY
   try {
     const userRef = admin.database().ref('users/' + userId);
     const userSnapshot = await userRef.once('value');
     const userData = userSnapshot.val();
 
     if (!userData) {
-      return res.status(404).json({
-        success: false,
-        message: 'User account not found'
-      });
+      return res.status(404).json({ success: false, message: 'User account not found' });
     }
 
     const currentCredits = userData.credits || 0;
-    
     if (currentCredits <= 0) {
-      return res.status(402).json({
-        success: false,
-        message: 'Insufficient credits. Please purchase more credits to continue.',
-        remaining_credits: 0
-      });
+      return res.status(402).json({ success: false, message: 'Insufficient credits.', remaining_credits: 0 });
     }
 
-    /* ⚙️ INPUT VALIDATION */
     let { number, aadhaar } = req.query;
-
     if (!number && !aadhaar) {
-      return res.status(400).json({
-        success: false,
-        message: 'Either phone number or Aadhaar number is required'
-      });
-    }
-
-    if (number && aadhaar) {
-      return res.status(400).json({
-        success: false,
-        message: 'Provide either phone number OR Aadhaar number, not both'
-      });
+      return res.status(400).json({ success: false, message: 'Either phone number or Aadhaar number is required' });
     }
 
     let apiUrl, searchType, validatedInput;
-
     if (number) {
       if (!validateInput(number, 'phone')) {
-        return res.status(400).json({
-          success: false,
-          message: 'Invalid phone number format. Must be 10 digits starting with 6,7,8,9'
-        });
+        return res.status(400).json({ success: false, message: 'Invalid phone number format' });
       }
       apiUrl = `https://all-in-one-personal-api.vercel.app/api/aggregate?number=${number}`;
       searchType = 'phone';
       validatedInput = number.replace(/\D/g, '');
     } else {
       if (!validateInput(aadhaar, 'aadhaar')) {
-        return res.status(400).json({
-          success: false,
-          message: 'Invalid Aadhaar number format. Must be 12 digits'
-        });
+        return res.status(400).json({ success: false, message: 'Invalid Aadhaar number format' });
       }
       apiUrl = `https://all-in-one-personal-api.vercel.app/api/aggregate?aadhaar=${aadhaar}`;
       searchType = 'aadhaar';
       validatedInput = aadhaar.replace(/\D/g, '');
     }
 
-    /* 🚫 CHECK FOR BAD WORDS IN SEARCH INPUT */
-    const searchQuery = number || aadhaar;
-    if (containsBadWords(searchQuery)) {
-      const warningCount = await addWarning(userId, 'Used bad words in search');
-      return res.status(400).json({
-        success: false,
-        message: `Inappropriate content detected. Warning ${warningCount}/3.`,
-        warning_issued: true,
-        warnings_count: warningCount
-      });
-    }
-
-    /* 🌐 EXTERNAL API CALL */
-    console.log(`Processing ${searchType} search for user ${userId}, Credits before: ${currentCredits}`);
-
+    // External API call
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 15000);
-
     let externalResponse;
     
     try {
-      const response = await fetch(apiUrl, {
-        signal: controller.signal,
-        headers: {
-          'User-Agent': 'HappyOSINT-Backend/1.0'
-        }
-      });
-
+      const response = await fetch(apiUrl, { signal: controller.signal });
       clearTimeout(timeoutId);
-
-      if (!response.ok) {
-        throw new Error(`External API error: ${response.status}`);
-      }
-
+      if (!response.ok) throw new Error(`External API error: ${response.status}`);
       externalResponse = await response.json();
-      
-      if (!externalResponse || typeof externalResponse !== 'object') {
-        throw new Error('Invalid response from external API');
-      }
-
     } catch (fetchError) {
       clearTimeout(timeoutId);
-      
-      // External API failed - DON'T deduct credits
-      console.error('External API failed, credits not deducted:', fetchError.message);
-      
-      return res.status(503).json({
-        success: false,
-        message: 'Service temporarily unavailable. Please try again.',
-        remaining_credits: currentCredits // Credits intact
-      });
+      return res.status(503).json({ success: false, message: 'Service temporarily unavailable.', remaining_credits: currentCredits });
     }
 
-    /* 💸 CREDIT DEDUCTION - ONLY WHEN SUCCESSFUL */
+    // Deduct credit
     const newCredits = currentCredits - 1;
-    
     try {
-      await userRef.update({ 
-        credits: newCredits,
-        lastSearch: {
-          type: searchType,
-          input: validatedInput.substring(0, 3) + '***',
-          timestamp: admin.database.ServerValue.TIMESTAMP
-        }
-      });
-      
-      console.log(`Credits deducted for user ${userId}. New balance: ${newCredits}`);
-
+      await userRef.update({ credits: newCredits });
     } catch (dbError) {
       console.error('Credit deduction failed:', dbError);
-      // Even if credit update fails, return data but log the error
     }
 
-    /* 🎯 SUCCESS RESPONSE */
+    // Success response
     return res.json({
       success: true,
       search_type: searchType,
@@ -552,17 +300,11 @@ module.exports = async (req, res) => {
       remaining_credits: newCredits,
       fetched: externalResponse,
       developer: 'Happy 😊',
-      contact: '@Royal_smart_boy',
-      privacy_notice: 'Protect your privacy at: https://otpal.vercel.app'
+      contact: '@Royal_smart_boy'
     });
 
   } catch (error) {
     console.error('Server error:', error);
-    
-    return res.status(500).json({
-      success: false,
-      message: 'Internal server error. Please try again.',
-      developer: 'Happy 😊'
-    });
+    return res.status(500).json({ success: false, message: 'Internal server error.' });
   }
 };
