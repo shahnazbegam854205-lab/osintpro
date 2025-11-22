@@ -63,21 +63,81 @@ function validateInput(input, type) {
   return false;
 }
 
+// ✅ BAD WORDS FILTER
+const badWords = [
+  'fuck', 'lund', 'chod', 'madarchod', 'bhosdike', 'behenchod', 
+  'gaand', 'chutiya', 'kutta', 'kamine', 'lavde', 'randi',
+  'rand', 'bhenchod', 'bsdk', 'mc', 'bc', 'gandu',
+  'prostitute', 'whore', 'slut', 'asshole', 'bitch', 
+  'dick', 'pussy', 'sex', 'fucking', 'bastard',
+  'motherfucker', 'shit', 'ass', 'dickhead'
+];
+
+function containsBadWords(text) {
+  if (!text || typeof text !== 'string') return false;
+  return badWords.some(word => 
+    text.toLowerCase().includes(word.toLowerCase())
+  );
+}
+
+// ✅ CHECK IF USER IS BANNED
+async function isUserBanned(userId) {
+  try {
+    const banRef = admin.database().ref('banned_users/' + userId);
+    const snapshot = await banRef.once('value');
+    return snapshot.exists();
+  } catch (error) {
+    console.error('Error checking ban status:', error);
+    return false;
+  }
+}
+
+// ✅ ADD WARNING TO USER
+async function addWarning(userId, reason) {
+  try {
+    const warningRef = admin.database().ref('user_warnings/' + userId);
+    const snapshot = await warningRef.once('value');
+    const currentWarnings = snapshot.val() || 0;
+    
+    await warningRef.set(currentWarnings + 1);
+    
+    // Log the warning
+    await admin.database().ref('admin_logs').push().set({
+      action: 'warning',
+      userId: userId,
+      reason: reason,
+      timestamp: admin.database.ServerValue.TIMESTAMP,
+      warningsCount: currentWarnings + 1
+    });
+    
+    console.log(`Warning added to user ${userId}. Total warnings: ${currentWarnings + 1}`);
+    
+    // Auto-ban after 3 warnings
+    if (currentWarnings + 1 >= 3) {
+      await admin.database().ref('banned_users/' + userId).set({
+        banned: true,
+        reason: 'Multiple warnings - Auto ban',
+        bannedAt: admin.database.ServerValue.TIMESTAMP,
+        bannedBy: 'system'
+      });
+      console.log(`User ${userId} auto-banned due to multiple warnings`);
+    }
+    
+    return currentWarnings + 1;
+  } catch (error) {
+    console.error('Error adding warning:', error);
+    return 0;
+  }
+}
+
 module.exports = async (req, res) => {
   /* 🌐 CORS SETUP */
   res.setHeader('Access-Control-Allow-Origin', 'https://osintpro.vercel.app');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
-  }
-
-  if (req.method !== 'GET') {
-    return res.status(405).json({
-      success: false,
-      message: 'Method not allowed'
-    });
   }
 
   /* 🔐 SECURITY CHECKS */
@@ -121,7 +181,233 @@ module.exports = async (req, res) => {
     });
   }
 
-  /* 💰 CREDIT MANAGEMENT - BACKEND SE HI */
+  /* 🚫 CHECK IF USER IS BANNED */
+  try {
+    const isBanned = await isUserBanned(userId);
+    if (isBanned) {
+      return res.status(403).json({
+        success: false,
+        message: 'Your account has been banned. Please contact support.'
+      });
+    }
+  } catch (banCheckError) {
+    console.error('Ban check error:', banCheckError);
+    // Continue even if ban check fails
+  }
+
+  // ✅ NEW: GET ALL USERS ENDPOINT
+  if (req.method === 'GET' && req.url === '/api/search/users') {
+    try {
+      const usersRef = admin.database().ref('users');
+      const snapshot = await usersRef.once('value');
+      const users = snapshot.val();
+
+      const usersList = [];
+      Object.entries(users || {}).forEach(([uid, userData]) => {
+        if (uid !== userId) { // Don't include current user
+          usersList.push({
+            uid: uid,
+            name: userData.name || 'Unknown User',
+            email: userData.email || '',
+            credits: userData.credits || 0,
+            profile: userData.profile || {},
+            createdAt: userData.createdAt || Date.now(),
+            isOnline: userData.isOnline || false
+          });
+        }
+      });
+
+      return res.json({
+        success: true,
+        users: usersList,
+        total_users: usersList.length
+      });
+
+    } catch (error) {
+      console.error('Get users error:', error);
+      return res.status(500).json({ 
+        success: false, 
+        message: 'Failed to get users' 
+      });
+    }
+  }
+
+  // ✅ NEW: SEND CHAT MESSAGE ENDPOINT
+  if (req.method === 'POST' && req.url === '/api/search/send-message') {
+    try {
+      const { toUserId, message } = req.body;
+      
+      if (!toUserId || !message) {
+        return res.status(400).json({ 
+          success: false, 
+          message: 'User ID and message are required' 
+        });
+      }
+
+      if (message.trim().length === 0) {
+        return res.status(400).json({ 
+          success: false, 
+          message: 'Message cannot be empty' 
+        });
+      }
+
+      // 🚫 CHECK FOR BAD WORDS
+      if (containsBadWords(message)) {
+        const warningCount = await addWarning(userId, 'Used bad words in chat');
+        return res.status(400).json({
+          success: false,
+          message: `Inappropriate content detected. Warning ${warningCount}/3.`,
+          warning_issued: true,
+          warnings_count: warningCount
+        });
+      }
+
+      // Check if target user exists
+      const targetUserRef = admin.database().ref('users/' + toUserId);
+      const targetUserSnapshot = await targetUserRef.once('value');
+      
+      if (!targetUserSnapshot.exists()) {
+        return res.status(404).json({ 
+          success: false, 
+          message: 'Target user not found' 
+        });
+      }
+
+      // Get current user info
+      const userRef = admin.database().ref('users/' + userId);
+      const userSnapshot = await userRef.once('value');
+      const userData = userSnapshot.val();
+      const userName = userData?.name || 'Unknown User';
+
+      // Create chat ID (sorted to ensure consistency)
+      const chatId = [userId, toUserId].sort().join('_');
+      
+      // Save message to Firebase Realtime Database
+      const messageData = {
+        text: message.trim(),
+        senderId: userId,
+        senderName: userName,
+        timestamp: admin.database.ServerValue.TIMESTAMP,
+        read: false,
+        expiresAt: Date.now() + (3 * 60 * 1000) // 3 minutes from now
+      };
+
+      const chatRef = admin.database().ref('chats/' + chatId + '/messages');
+      const newMessageRef = chatRef.push();
+      
+      await newMessageRef.set(messageData);
+
+      // ✅ AUTO-DELETE AFTER 3 MINUTES
+      setTimeout(async () => {
+        try {
+          await newMessageRef.remove();
+          console.log(`Auto-deleted message: ${newMessageRef.key}`);
+        } catch (error) {
+          console.error('Error auto-deleting message:', error);
+        }
+      }, 3 * 60 * 1000); // 3 minutes
+
+      // Update both users' chat lists
+      const userChatRef = admin.database().ref('user_chats/' + userId + '/' + toUserId);
+      const targetChatRef = admin.database().ref('user_chats/' + toUserId + '/' + userId);
+      
+      const chatInfo = {
+        lastMessage: message.trim(),
+        lastMessageTime: admin.database.ServerValue.TIMESTAMP,
+        unreadCount: admin.database.ServerValue.increment(1),
+        participantId: toUserId,
+        participantName: targetUserSnapshot.val().name || 'Unknown User',
+        participantAvatar: targetUserSnapshot.val().profile?.profilePic || ''
+      };
+
+      await userChatRef.set({
+        ...chatInfo,
+        unreadCount: 0 // For sender, unread count is 0
+      });
+
+      await targetChatRef.set({
+        ...chatInfo,
+        participantId: userId,
+        participantName: userName,
+        participantAvatar: userData.profile?.profilePic || ''
+      });
+
+      return res.json({
+        success: true,
+        message: 'Message sent successfully!',
+        message_id: newMessageRef.key,
+        chat_id: chatId,
+        expires_in: '3 minutes'
+      });
+
+    } catch (error) {
+      console.error('Chat message error:', error);
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to send message: ' + error.message
+      });
+    }
+  }
+
+  // ✅ NEW: GET CHAT MESSAGES ENDPOINT
+  if (req.method === 'GET' && req.url === '/api/search/get-messages') {
+    try {
+      const { targetUserId } = req.query;
+      
+      if (!targetUserId) {
+        return res.status(400).json({ 
+          success: false, 
+          message: 'Target user ID is required' 
+        });
+      }
+
+      // Create chat ID (sorted to ensure consistency)
+      const chatId = [userId, targetUserId].sort().join('_');
+      
+      // Get messages from Firebase
+      const messagesRef = admin.database().ref('chats/' + chatId + '/messages');
+      const snapshot = await messagesRef.orderByChild('timestamp').limitToLast(50).once('value');
+      
+      const messages = [];
+      snapshot.forEach((childSnapshot) => {
+        const messageData = childSnapshot.val();
+        // Check if message is expired
+        if (messageData.expiresAt > Date.now()) {
+          messages.push({
+            id: childSnapshot.key,
+            ...messageData
+          });
+        }
+      });
+
+      // Mark messages as read
+      const updates = {};
+      snapshot.forEach((childSnapshot) => {
+        if (childSnapshot.val().senderId !== userId && !childSnapshot.val().read) {
+          updates[childSnapshot.key + '/read'] = true;
+        }
+      });
+
+      if (Object.keys(updates).length > 0) {
+        await messagesRef.update(updates);
+      }
+
+      return res.json({
+        success: true,
+        messages: messages.reverse(), // Latest messages last
+        chat_id: chatId
+      });
+
+    } catch (error) {
+      console.error('Get messages error:', error);
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to get messages: ' + error.message
+      });
+    }
+  }
+
+  // ✅ ORIGINAL SEARCH FUNCTIONALITY (UNCHANGED)
   try {
     const userRef = admin.database().ref('users/' + userId);
     const userSnapshot = await userRef.once('value');
@@ -183,6 +469,18 @@ module.exports = async (req, res) => {
       apiUrl = `https://all-in-one-personal-api.vercel.app/api/aggregate?aadhaar=${aadhaar}`;
       searchType = 'aadhaar';
       validatedInput = aadhaar.replace(/\D/g, '');
+    }
+
+    /* 🚫 CHECK FOR BAD WORDS IN SEARCH INPUT */
+    const searchQuery = number || aadhaar;
+    if (containsBadWords(searchQuery)) {
+      const warningCount = await addWarning(userId, 'Used bad words in search');
+      return res.status(400).json({
+        success: false,
+        message: `Inappropriate content detected. Warning ${warningCount}/3.`,
+        warning_issued: true,
+        warnings_count: warningCount
+      });
     }
 
     /* 🌐 EXTERNAL API CALL */
@@ -247,7 +545,7 @@ module.exports = async (req, res) => {
     }
 
     /* 🎯 SUCCESS RESPONSE */
-    res.json({
+    return res.json({
       success: true,
       search_type: searchType,
       credits_used: 1,
@@ -261,7 +559,7 @@ module.exports = async (req, res) => {
   } catch (error) {
     console.error('Server error:', error);
     
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: 'Internal server error. Please try again.',
       developer: 'Happy 😊'
