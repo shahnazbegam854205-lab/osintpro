@@ -1,0 +1,660 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>👥 All Users - HAPPY INFO TOOL</title>
+    <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background: radial-gradient(circle at center, #070808 0%, #000 80%);
+            font-family: 'Share Tech Mono', monospace;
+            color: #00fff2;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container { max-width: 1200px; margin: 0 auto; }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding: 20px;
+            background: linear-gradient(180deg, rgba(5,5,6,0.95), rgba(3,3,4,0.95));
+            border-radius: 16px;
+            border: 2px solid rgba(0,255,200,0.06);
+            box-shadow: 0 0 20px rgba(0,255,242,0.3);
+        }
+        .auth-message {
+            background: rgba(255,85,102,0.2);
+            border: 1px solid #ff5566;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+            margin: 20px 0;
+        }
+        .auth-btn {
+            padding: 12px 24px;
+            background: linear-gradient(90deg, #00fff2, #00ffaa);
+            color: #000;
+            border: none;
+            border-radius: 10px;
+            font-weight: bold;
+            cursor: pointer;
+            font-family: 'Share Tech Mono', monospace;
+            margin-top: 10px;
+        }
+        .header h1 {
+            font-size: 2rem;
+            margin-bottom: 10px;
+            text-shadow: 0 0 10px #00fff2;
+        }
+        .header p { color: #bff; font-size: 1rem; }
+        .back-btn {
+            display: inline-block;
+            padding: 10px 20px;
+            background: linear-gradient(90deg, #00fff2, #00ffaa);
+            color: #000;
+            text-decoration: none;
+            border-radius: 10px;
+            font-weight: bold;
+            margin-top: 10px;
+            transition: all 0.3s ease;
+        }
+        .back-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0,255,200,0.4);
+        }
+
+        /* Search Section */
+        .search-section {
+            margin: 20px 0;
+        }
+        .search-input {
+            width: 100%;
+            max-width: 500px;
+            padding: 15px;
+            border-radius: 12px;
+            border: 2px solid rgba(0,255,242,0.2);
+            background: rgba(0,12,12,0.8);
+            color: #ffb84d;
+            font-size: 16px;
+            font-family: 'Share Tech Mono', monospace;
+            margin: 0 auto;
+            display: block;
+        }
+        .search-input:focus {
+            outline: none;
+            border-color: #00fff2;
+            box-shadow: 0 0 15px rgba(0,255,242,0.3);
+        }
+
+        /* Search Results */
+        .search-results {
+            max-width: 500px;
+            margin: 10px auto;
+            background: linear-gradient(180deg, rgba(6,6,8,0.95), rgba(4,4,6,0.95));
+            border-radius: 12px;
+            border: 1px solid rgba(0,255,204,0.06);
+            max-height: 300px;
+            overflow-y: auto;
+            display: none;
+        }
+        .search-result-item {
+            padding: 15px;
+            border-bottom: 1px solid rgba(0,255,204,0.1);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            transition: all 0.3s ease;
+        }
+        .search-result-item:hover {
+            background: rgba(0,255,242,0.1);
+        }
+        .search-result-item:last-child {
+            border-bottom: none;
+        }
+        .search-avatar {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 2px solid rgba(255, 215, 0, 0.5);
+        }
+        .search-user-info h4 {
+            font-size: 1rem;
+            margin-bottom: 5px;
+            color: #00fff2;
+        }
+        .search-user-id {
+            color: #ffaa00;
+            font-size: 0.8rem;
+            font-family: monospace;
+        }
+
+        /* Users Grid */
+        .users-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 20px;
+            margin-top: 30px;
+        }
+        .user-card {
+            background: linear-gradient(180deg, rgba(6,6,8,0.95), rgba(4,4,6,0.95));
+            border-radius: 12px;
+            padding: 20px;
+            border: 1px solid rgba(0,255,204,0.06);
+            box-shadow: 0 8px 30px rgba(0,0,0,0.6);
+            transition: all 0.3s ease;
+            cursor: pointer;
+            text-align: center;
+        }
+        .user-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 12px 40px rgba(0,255,200,0.2);
+            border-color: rgba(0,255,204,0.2);
+        }
+        .user-avatar {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 2px solid rgba(255, 215, 0, 0.5);
+            box-shadow: 0 0 15px rgba(255, 215, 0, 0.6);
+            margin: 0 auto 15px;
+        }
+        .user-name {
+            font-size: 1.1rem;
+            color: #00fff2;
+            margin-bottom: 10px;
+        }
+        .visit-profile-btn {
+            padding: 8px 16px;
+            background: linear-gradient(90deg, #00fff2, #00ffaa);
+            color: #000;
+            border: none;
+            border-radius: 8px;
+            font-weight: bold;
+            cursor: pointer;
+            font-family: 'Share Tech Mono', monospace;
+            width: 100%;
+            margin-top: 10px;
+        }
+
+        /* User Profile Modal */
+        .user-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.9);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            padding: 20px;
+        }
+        .user-modal.active {
+            display: flex;
+        }
+        .modal-content {
+            background: linear-gradient(180deg, rgba(6,6,8,0.98), rgba(4,4,6,0.95));
+            border-radius: 16px;
+            padding: 30px;
+            max-width: 500px;
+            width: 100%;
+            max-height: 90vh;
+            overflow-y: auto;
+            border: 2px solid rgba(0,255,200,0.1);
+            box-shadow: 0 0 50px rgba(0,255,200,0.3);
+            position: relative;
+        }
+        .modal-close {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: #ff5566;
+            color: white;
+            border: none;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 18px;
+            font-weight: bold;
+        }
+        .modal-header {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        .modal-avatar {
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 3px solid rgba(255, 215, 0, 0.6);
+            box-shadow: 0 0 20px rgba(255, 215, 0, 0.8);
+        }
+        .modal-user-info h2 {
+            font-size: 1.5rem;
+            margin-bottom: 5px;
+            color: #00fff2;
+        }
+        .modal-user-id {
+            color: #ffaa00;
+            font-size: 0.9rem;
+            font-family: monospace;
+            margin-bottom: 10px;
+        }
+        .modal-stats {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+        }
+        .modal-stat {
+            background: linear-gradient(90deg, #00fff2, #00ffaa);
+            color: #000;
+            padding: 6px 12px;
+            border-radius: 8px;
+            font-weight: bold;
+            text-align: center;
+            font-size: 0.8rem;
+        }
+
+        .modal-details {
+            display: grid;
+            gap: 15px;
+        }
+        .modal-detail-group {
+            background: rgba(0,255,242,0.05);
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid rgba(0,255,242,0.1);
+        }
+        .modal-detail-group h3 {
+            color: #00ffaa;
+            margin-bottom: 10px;
+            font-size: 1.1rem;
+        }
+        .modal-detail-item {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid rgba(0,255,242,0.1);
+        }
+        .modal-detail-item:last-child {
+            margin-bottom: 0;
+            padding-bottom: 0;
+            border-bottom: none;
+        }
+        .modal-label {
+            color: #00fff2;
+            font-weight: bold;
+        }
+        .modal-value {
+            color: #cfe;
+            text-align: right;
+        }
+
+        .no-users, .loading {
+            text-align: center;
+            padding: 40px;
+            font-size: 1.2rem;
+            grid-column: 1 / -1;
+        }
+        .no-users { color: #ff5555; }
+        .loading { color: #00ffaa; }
+
+        /* Private Info Style */
+        .private-info {
+            color: #ff5555 !important;
+            font-style: italic;
+        }
+
+        @media (max-width: 768px) {
+            .users-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 15px; }
+            .user-card { padding: 15px; }
+            .modal-content { padding: 20px; margin: 10px; }
+            .modal-header { flex-direction: column; text-align: center; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>👥 ALL USERS PROFILES</h1>
+            <p>Connect with other OSINT tool users</p>
+            <a href="https://osintpro.vercel.app" class="back-btn">← Back to Main App</a>
+        </div>
+
+        <!-- Authentication Message -->
+        <div id="authMessage" class="auth-message" style="display: none;">
+            <h3>🔐 Login Required</h3>
+            <p>Please login to view all users profiles</p>
+            <button class="auth-btn" onclick="window.location.href='https://osintpro.vercel.app'">Go to Login</button>
+        </div>
+
+        <!-- Search Section -->
+        <div class="search-section" id="searchSection" style="display: none;">
+            <input type="text" id="searchInput" class="search-input" placeholder="🔍 Search by name or user ID...">
+            <div class="search-results" id="searchResults"></div>
+        </div>
+
+        <!-- Users Grid -->
+        <div class="users-grid" id="usersGrid">
+            <div class="loading">Loading users... ⚡</div>
+        </div>
+    </div>
+
+    <!-- User Profile Modal -->
+    <div class="user-modal" id="userModal">
+        <div class="modal-content">
+            <button class="modal-close" id="modalClose">×</button>
+            <div class="modal-header">
+                <img src="" alt="User Avatar" class="modal-avatar" id="modalAvatar">
+                <div class="modal-user-info">
+                    <h2 id="modalName">User Name</h2>
+                    <div class="modal-user-id" id="modalUserId">ID: loading...</div>
+                    <div class="modal-stats">
+                        <div class="modal-stat" id="modalCredits">Credits: 0</div>
+                        <div class="modal-stat" id="modalMember">Member</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal-details">
+                <div class="modal-detail-group">
+                    <h3>📊 Personal Information</h3>
+                    <div class="modal-detail-item">
+                        <span class="modal-label">📞 Phone:</span>
+                        <span class="modal-value" id="modalPhone">Not Set</span>
+                    </div>
+                    <div class="modal-detail-item">
+                        <span class="modal-label">🔞 Age:</span>
+                        <span class="modal-value" id="modalAge">Not Set</span>
+                    </div>
+                    <div class="modal-detail-item">
+                        <span class="modal-label">♂️ Gender:</span>
+                        <span class="modal-value" id="modalGender">Not Set</span>
+                    </div>
+                    <div class="modal-detail-item">
+                        <span class="modal-label">🏠 Location:</span>
+                        <span class="modal-value" id="modalLocation">Not Set</span>
+                    </div>
+                    <div class="modal-detail-item">
+                        <span class="modal-label">❤️ Status:</span>
+                        <span class="modal-value" id="modalStatus">Not Set</span>
+                    </div>
+                </div>
+                
+                <div class="modal-detail-group">
+                    <h3>🎓 Education & Interests</h3>
+                    <div class="modal-detail-item">
+                        <span class="modal-label">📚 Education:</span>
+                        <span class="modal-value" id="modalEducation">Not Set</span>
+                    </div>
+                    <div class="modal-detail-item">
+                        <span class="modal-label">🤔 Interest:</span>
+                        <span class="modal-value" id="modalInterest">Not Set</span>
+                    </div>
+                </div>
+                
+                <div class="modal-detail-group">
+                    <h3>📅 Account Info</h3>
+                    <div class="modal-detail-item">
+                        <span class="modal-label">📅 Joined:</span>
+                        <span class="modal-value" id="modalJoinDate">Unknown</span>
+                    </div>
+                    <div class="modal-detail-item">
+                        <span class="modal-label">📧 Email:</span>
+                        <span class="modal-value private-info" id="modalEmail">Private</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Firebase Configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyAVGRG-rLimmEnodt9Vg4UihRPyeyh0cUw",
+            authDomain: "happy-8530b.firebaseapp.com",
+            databaseURL: "https://happy-8530b-default-rtdb.firebaseio.com",
+            projectId: "happy-8530b",
+            storageBucket: "happy-8530b.firebasestorage.app",
+            messagingSenderId: "294612089252",
+            appId: "1:294612089252:web:73c11460f18de97165e931",
+            measurementId: "G-GCMNZ4XREK"
+        };
+
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const database = firebase.database();
+
+        // DOM Elements
+        const usersGrid = document.getElementById('usersGrid');
+        const authMessage = document.getElementById('authMessage');
+        const searchSection = document.getElementById('searchSection');
+        const searchInput = document.getElementById('searchInput');
+        const searchResults = document.getElementById('searchResults');
+        const userModal = document.getElementById('userModal');
+        const modalClose = document.getElementById('modalClose');
+
+        let allUsers = [];
+        let currentSelectedUser = null;
+
+        // Check authentication and load users
+        auth.onAuthStateChanged((user) => {
+            if (user) {
+                authMessage.style.display = 'none';
+                searchSection.style.display = 'block';
+                loadAllUsers();
+            } else {
+                authMessage.style.display = 'block';
+                searchSection.style.display = 'none';
+                usersGrid.innerHTML = '';
+            }
+        });
+
+        // ✅ Load all users - NEW RULES COMPATIBLE
+        async function loadAllUsers() {
+            usersGrid.innerHTML = '<div class="loading">Loading users... ⚡</div>';
+            
+            try {
+                const usersRef = database.ref('users');
+                const snapshot = await usersRef.once('value');
+                const users = snapshot.val();
+
+                allUsers = [];
+                const currentUser = auth.currentUser;
+                
+                if (users) {
+                    Object.entries(users).forEach(([uid, userData]) => {
+                        // ✅ SAB USERS LOAD HO RAHE HAIN - Rules allow karte hain
+                        const userProfile = userData.profile || {};
+                        allUsers.push({
+                            uid: uid,
+                            name: userData.name || 'Unknown User',
+                            email: userData.email || '',
+                            credits: userData.credits || 0,
+                            profile: userProfile,
+                            createdAt: userData.createdAt || Date.now()
+                        });
+                    });
+                }
+
+                displayUsersGrid(allUsers);
+                console.log('✅ Successfully loaded', allUsers.length, 'users');
+                
+            } catch (error) {
+                console.error('❌ Error loading users:', error);
+                usersGrid.innerHTML = '<div class="no-users">Error loading users. Please check Firebase rules.</div>';
+            }
+        }
+
+        // ✅ Display users grid
+        function displayUsersGrid(users) {
+            if (!users || users.length === 0) {
+                usersGrid.innerHTML = '<div class="no-users">No users found yet! 🚀</div>';
+                return;
+            }
+
+            usersGrid.innerHTML = '';
+
+            users.forEach(user => {
+                const userCard = document.createElement('div');
+                userCard.className = 'user-card';
+                
+                const profile = user.profile || {};
+                const profilePic = profile.profilePic || 'https://cdn-icons-png.flaticon.com/512/3135/3135715.png';
+                const userName = user.name || 'Unknown User';
+                
+                userCard.innerHTML = `
+                    <img src="${profilePic}" 
+                         alt="${userName}" class="user-avatar" onerror="this.src='https://cdn-icons-png.flaticon.com/512/3135/3135715.png'">
+                    <div class="user-name">${userName}</div>
+                    <div style="color: #ffaa00; font-size: 0.9rem; margin: 10px 0;">
+                        Credits: ${user.credits || 0}
+                    </div>
+                    <div style="color: #00ffaa; font-size: 0.8rem; margin-bottom: 10px;">
+                        ID: ${user.uid.substring(0, 8)}...
+                    </div>
+                    <button class="visit-profile-btn" data-uid="${user.uid}">View Profile</button>
+                `;
+
+                userCard.querySelector('.visit-profile-btn').addEventListener('click', () => {
+                    openUserModal(user);
+                });
+
+                usersGrid.appendChild(userCard);
+            });
+        }
+
+        // Search functionality
+        searchInput.addEventListener('input', (e) => {
+            const searchTerm = e.target.value.toLowerCase().trim();
+            
+            if (searchTerm.length === 0) {
+                searchResults.style.display = 'none';
+                return;
+            }
+
+            const filteredUsers = allUsers.filter(user => {
+                const userName = (user.name || '').toLowerCase();
+                const userId = user.uid.toLowerCase();
+                return userName.includes(searchTerm) || userId.includes(searchTerm);
+            });
+
+            displaySearchResults(filteredUsers);
+        });
+
+        // Display search results
+        function displaySearchResults(users) {
+            searchResults.innerHTML = '';
+            
+            if (users.length === 0) {
+                searchResults.innerHTML = '<div class="search-result-item">No users found</div>';
+            } else {
+                users.forEach(user => {
+                    const profile = user.profile || {};
+                    const profilePic = profile.profilePic || 'https://cdn-icons-png.flaticon.com/512/3135/3135715.png';
+                    const userName = user.name || 'Unknown User';
+                    
+                    const resultItem = document.createElement('div');
+                    resultItem.className = 'search-result-item';
+                    resultItem.innerHTML = `
+                        <img src="${profilePic}" 
+                             alt="${userName}" class="search-avatar" onerror="this.src='https://cdn-icons-png.flaticon.com/512/3135/3135715.png'">
+                        <div class="search-user-info">
+                            <h4>${userName}</h4>
+                            <div class="search-user-id">ID: ${user.uid.substring(0, 8)}...</div>
+                            <div style="color: #ffaa00; font-size: 0.7rem;">Credits: ${user.credits || 0}</div>
+                        </div>
+                    `;
+                    
+                    resultItem.addEventListener('click', () => {
+                        openUserModal(user);
+                        searchResults.style.display = 'none';
+                        searchInput.value = '';
+                    });
+                    
+                    searchResults.appendChild(resultItem);
+                });
+            }
+            
+            searchResults.style.display = 'block';
+        }
+
+        // ✅ Open user modal - NEW RULES COMPATIBLE
+        function openUserModal(user) {
+            currentSelectedUser = user;
+            
+            const profile = user.profile || {};
+            const joinDate = user.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'Unknown';
+            const profilePic = profile.profilePic || 'https://cdn-icons-png.flaticon.com/512/3135/3135715.png';
+            const userName = user.name || 'Unknown User';
+            
+            // ✅ PUBLIC DATA - Sab dikh raha hai
+            document.getElementById('modalAvatar').src = profilePic;
+            document.getElementById('modalName').textContent = userName;
+            document.getElementById('modalUserId').textContent = `ID: ${user.uid}`;
+            document.getElementById('modalCredits').textContent = `Credits: ${user.credits || 0}`;
+            document.getElementById('modalMember').textContent = user.credits > 0 ? 'Premium' : 'Free';
+            
+            // ✅ PROFILE DATA - Sab dikh raha hai
+            document.getElementById('modalPhone').textContent = profile.phone || 'Not Set';
+            document.getElementById('modalAge').textContent = profile.age || 'Not Set';
+            document.getElementById('modalGender').textContent = profile.gender || 'Not Set';
+            document.getElementById('modalLocation').textContent = profile.location || 'Not Set';
+            document.getElementById('modalEducation').textContent = profile.education || 'Not Set';
+            document.getElementById('modalInterest').textContent = profile.interest || 'Not Set';
+            document.getElementById('modalStatus').textContent = profile.status || 'Not Set';
+            document.getElementById('modalJoinDate').textContent = joinDate;
+            
+            // ✅ PRIVATE DATA - Email hidden (rules ke according)
+            document.getElementById('modalEmail').textContent = 'Private';
+            document.getElementById('modalEmail').className = 'modal-value private-info';
+
+            userModal.classList.add('active');
+        }
+
+        // Close modal
+        modalClose.addEventListener('click', () => {
+            userModal.classList.remove('active');
+            currentSelectedUser = null;
+        });
+
+        userModal.addEventListener('click', (e) => {
+            if (e.target === userModal) {
+                userModal.classList.remove('active');
+                currentSelectedUser = null;
+            }
+        });
+
+        document.addEventListener('click', (e) => {
+            if (!searchSection.contains(e.target)) {
+                searchResults.style.display = 'none';
+            }
+        });
+
+        // Handle image loading errors
+        document.addEventListener('DOMContentLoaded', function() {
+            document.querySelectorAll('img').forEach(img => {
+                img.addEventListener('error', function() {
+                    this.src = 'https://cdn-icons-png.flaticon.com/512/3135/3135715.png';
+                });
+            });
+        });
+
+    </script>
+</body>
+</html>
